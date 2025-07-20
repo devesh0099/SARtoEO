@@ -10,6 +10,8 @@ NUM_WORKERS = 4
 NUM_EPOCHS = 20
 LOAD_MODEL = False
 SAVE_MODEL = True
+LAMBDA_SSIM = 1.0
+
 
 EORGB_CHECKPOINT_GEN_SAR = "eorgb_gensar.pth.tar"
 EORGB_CHECKPOINT_GEN_EO = "eorgb_geneo.pth.tar"

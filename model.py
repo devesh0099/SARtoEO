@@ -6,6 +6,8 @@ from enum import Enum
 from preprocess import get_dataloaders
 import config
 
+from torchmetrics.image import StructuralSimilarityIndexMeasure
+
 class ModelType(Enum):
     SAR_TO_EORGB =1
     SAR_TO_EONIRSWIR = 2
@@ -43,44 +45,57 @@ class Model():
         self.L1 = L1
         self.mse = mse
 
-class SelfAttention(nn.Module):
-    """
-    Self-Attention Layer based on the SAGAN paper. This allows the network
-    to model long-range dependencies, focusing on important spatial regions.
-    """
-    def __init__(self, in_channels):
-        super(SelfAttention, self).__init__()
-        self.in_channels = in_channels
 
-        # Convolutional layers to create query, key, and value matrices
-        self.query_conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels // 8, kernel_size=1)
-        self.key_conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels // 8, kernel_size=1)
-        self.value_conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=1)
+class SSIMLoss(nn.Module):
+    def __init__(self):
+        super(SSIMLoss, self).__init__()
+        self.ssim_metric = StructuralSimilarityIndexMeasure(data_range=1.0)
+
+    def forward(self, img1, img2):
+        # The SSIM metric returns a value between 0 and 1 (higher is better).
+        # To use it as a loss, we want to minimize (1 - SSIM).
+        self.ssim_metric.to(img1.device)
+        return 1 - self.ssim_metric(img1, img2)
+
+
+# class SelfAttention(nn.Module):
+#     """
+#     Self-Attention Layer based on the SAGAN paper. This allows the network
+#     to model long-range dependencies, focusing on important spatial regions.
+#     """
+#     def __init__(self, in_channels):
+#         super(SelfAttention, self).__init__()
+#         self.in_channels = in_channels
+
+#         # Convolutional layers to create query, key, and value matrices
+#         self.query_conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels // 8, kernel_size=1)
+#         self.key_conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels // 8, kernel_size=1)
+#         self.value_conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=1)
         
-        # Gamma is a learnable parameter that scales the attention output
-        self.gamma = nn.Parameter(torch.zeros(1))
+#         # Gamma is a learnable parameter that scales the attention output
+#         self.gamma = nn.Parameter(torch.zeros(1))
 
-        self.softmax = nn.Softmax(dim=-1)
+#         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, x):
-        batch_size, C, width, height = x.size()
+#     def forward(self, x):
+#         batch_size, C, width, height = x.size()
         
-        # Create Query, Key, and Value projections
-        proj_query = self.query_conv(x).view(batch_size, -1, width * height).permute(0, 2, 1)
-        proj_key = self.key_conv(x).view(batch_size, -1, width * height)
-        proj_value = self.value_conv(x).view(batch_size, -1, width * height)
+#         # Create Query, Key, and Value projections
+#         proj_query = self.query_conv(x).view(batch_size, -1, width * height).permute(0, 2, 1)
+#         proj_key = self.key_conv(x).view(batch_size, -1, width * height)
+#         proj_value = self.value_conv(x).view(batch_size, -1, width * height)
 
-        # Calculate the attention map
-        energy = torch.bmm(proj_query, proj_key)
-        attention_map = self.softmax(energy)
+#         # Calculate the attention map
+#         energy = torch.bmm(proj_query, proj_key)
+#         attention_map = self.softmax(energy)
 
-        # Apply the attention map to the value projection
-        out = torch.bmm(proj_value, attention_map.permute(0, 2, 1))
-        out = out.view(batch_size, C, width, height)
+#         # Apply the attention map to the value projection
+#         out = torch.bmm(proj_value, attention_map.permute(0, 2, 1))
+#         out = out.view(batch_size, C, width, height)
         
-        # Apply the learned gamma parameter and add the residual connection
-        out = self.gamma * out + x
-        return out
+#         # Apply the learned gamma parameter and add the residual connection
+#         out = self.gamma * out + x
+#         return out
 
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, stride):
@@ -133,7 +148,7 @@ class ResidualBlock(nn.Module):
 
 
 
-class GeneratorWithAttention(nn.Module):
+class Generator(nn.Module):
     def __init__(self, in_channels, out_channels, num_features=64, num_residuals=9):
         super().__init__()
         self.initial = nn.Sequential(
@@ -165,7 +180,7 @@ class GeneratorWithAttention(nn.Module):
         self.res_blocks = nn.Sequential(
             *[ResidualBlock(num_features * 4) for _ in range(num_residuals)]
         )
-        self.attention = SelfAttention(in_channels=num_features * 4)
+        # self.attention = SelfAttention(in_channels=num_features * 4)
         self.up_blocks = nn.ModuleList(
             [
                 ConvBlock(
@@ -203,7 +218,7 @@ class GeneratorWithAttention(nn.Module):
         for layer in self.down_blocks:
             x = layer(x)
         x = self.res_blocks(x)
-        x = self.attention(x)
+        # x = self.attention(x)
         for layer in self.up_blocks:
             x = layer(x)
         return torch.tanh(self.last(x))
@@ -263,8 +278,8 @@ def get_model(model:ModelType = ModelType.SAR_TO_EORGB):
 
     disc_SAR = Discriminator(in_channels=sar_img_channels).to(config.DEVICE)
     disc_EO = Discriminator(in_channels=eo_img_channels).to(config.DEVICE)
-    gen_EO = GeneratorWithAttention(in_channels=sar_img_channels, out_channels=eo_img_channels, num_residuals=9).to(config.DEVICE)
-    gen_SAR = GeneratorWithAttention(in_channels=eo_img_channels, out_channels=sar_img_channels, num_residuals=9).to(config.DEVICE)
+    gen_EO = Generator(in_channels=sar_img_channels, out_channels=eo_img_channels, num_residuals=9).to(config.DEVICE)
+    gen_SAR = Generator(in_channels=eo_img_channels, out_channels=sar_img_channels, num_residuals=9).to(config.DEVICE)
     
     opt_disc = optim.Adam(
         list(disc_SAR.parameters()) + list(disc_EO.parameters()),

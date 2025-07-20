@@ -163,6 +163,8 @@ def train(cycleGAN:model.Model):
     loader = cycleGAN.train_dataloader
     loop = tqdm(loader,leave=False)
 
+    ssim_loss_fn = model.SIMLoss()
+
     EO_reals = 0
     EO_fakes = 0
 
@@ -221,6 +223,12 @@ def train(cycleGAN:model.Model):
             identity_sar_loss = l1(sar, identity_sar)
             identity_eo_loss = l1(eo, identity_eo)
 
+            # --- NEW: Calculate SSIM Loss ---
+            # Denormalize images to the [0, 1] range for SSIM calculation
+            fake_eo_norm = fake_eo * 0.5 + 0.5
+            eo_norm = eo * 0.5 + 0.5
+            ssim_loss = ssim_loss_fn(fake_eo_norm, eo_norm)
+
             # Combine all generator losses
             G_loss = (
                 loss_G_SAR
@@ -229,6 +237,7 @@ def train(cycleGAN:model.Model):
                 + cycle_eo_loss * config.LAMBDA_CYCLE
                 + identity_eo_loss * config.LAMBDA_IDENTITY
                 + identity_sar_loss * config.LAMBDA_IDENTITY
+                + ssim_loss * config.LAMBDA_SSIM  # Add the weighted SSIM loss
             )
 
         opt_gen.zero_grad()
