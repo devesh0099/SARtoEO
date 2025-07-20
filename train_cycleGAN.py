@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from tdqm import tdqm
+from tqdm import tqdm
 import model
 import config
 from torchvision.utils import save_image
@@ -91,7 +91,7 @@ def train(cycleGAN:model.Model):
     d_scaler = cycleGAN.d_scaler
     g_scaler = cycleGAN.g_scaler
     loader = cycleGAN.train_dataloader
-    loop = tdqm(loader,leave=False)
+    loop = tqdm(loader,leave=False)
 
     EO_reals = 0
     EO_fakes = 0
