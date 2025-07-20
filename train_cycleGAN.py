@@ -301,7 +301,7 @@ def main():
         epoch_log_data = {
             "epoch": epoch + 1,
             "learning_rate_gen": current_lr_gen, 
-            "learning_rate_disc": current_lr_disc
+            "learning_rate_disc": current_lr_disc,
             **train_metrics,
             **validation_metrics
         }
