@@ -163,7 +163,7 @@ class PairedSarEoDataset(Dataset):
         return sar_img, eo_img
 
 
-def get_dataloaders(base_dir: str, batch_size: int, val_split: float = 0.15, season: Seasons = Seasons.WINTER) -> Tuple[Dict, Dict]:
+def get_dataloaders(base_dir: str, batch_size: int, val_split: float = 0.4, season: Seasons = Seasons.WINTER) -> Tuple[Dict, Dict]:
     """
     Prepares and returns training and validation dataloaders for all three configurations.
     
