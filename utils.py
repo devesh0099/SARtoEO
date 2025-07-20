@@ -4,9 +4,13 @@ import config
 import copy
 
 def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
-    print("=> Saving checkpoint")
+    print(f"=> Saving checkpoint to {filename}")
+    if isinstance(model, nn.DataParallel):
+        model_state_dict = model.module.state_dict()
+    else:
+        model_state_dict = model.state_dict()
     checkpoint = {
-        "state_dict": model.state_dict(),
+        "state_dict": model_state_dict,
         "optimizer": optimizer.state_dict(),
     }
     torch.save(checkpoint, filename)

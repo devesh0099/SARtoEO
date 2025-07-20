@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from utils import load_checkpoint,save_checkpoint
 from enum import Enum
 from preprocess import get_dataloaders
 import config
@@ -22,8 +21,8 @@ class Model():
         opt_gen,    
         train_dataloader,
         val_dataloader,
-        g_scaler = torch.cuda.amp.GradScaler(),
-        d_scaler = torch.cuda.amp.GradScaler(),
+        g_scaler = torch.amp.GradScaler('cuda'),
+        d_scaler = torch.amp.GradScaler('cuda'),
         L1 = nn.L1Loss(),
         mse = nn.MSELoss(),
         ):
@@ -39,10 +38,6 @@ class Model():
         self.d_scaler = d_scaler
         self.L1 = L1
         self.mse = mse
-
-
-
-
 
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, stride):
@@ -236,7 +231,7 @@ def get_model(model:ModelType = ModelType.SAR_TO_EORGB):
 
     train_loader, val_loader = get_dataloaders(config.BASE_DIR) 
     
-    match ModelType:
+    match model:
         case ModelType.SAR_TO_EORGB:
             return Model(
                 disc_SAR=disc_SAR,
@@ -287,7 +282,7 @@ def get_model(model:ModelType = ModelType.SAR_TO_EORGB):
     #     )
 
     # if config.SAVE_MODEL:
-    #     match ModelType:
+    #     match model:
     #         case ModelType.SAR_TO_EORGB:
     #             save_checkpoint(gen_SAR, opt_gen, filename=config.EORGB_CHECKPOINT_GEN_SAR)
     #             save_checkpoint(gen_EO, opt_gen, filename=config.EORGB_CHECKPOINT_GEN_EO)
@@ -306,7 +301,7 @@ def get_model(model:ModelType = ModelType.SAR_TO_EORGB):
     
 
     # if config.LOAD_MODEL:
-    #     match ModelType:
+    #     match model:
     #         case ModelType.SAR_TO_EORGB:
     #             load_checkpoint(
     #                 config.EORGB_CHECKPOINT_GEN_SAR,
