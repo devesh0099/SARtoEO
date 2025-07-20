@@ -4,62 +4,62 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import random
 from typing import List, Tuple, Dict
-from scipy.ndimage import uniform_filter, variance
+from scipy.ndimage import uniform_filter, variance , gaussian_filter
+import os
 
-
-def lee_filter(img, size): 
+def norm_db(arr_db: np.ndarray, lo: float = -30.0, hi: float = 0.0) -> np.ndarray:
     """
-    Applies Speckle Filter on the Image
+    Linearly maps the dB range [lo, hi] to [-1, 1] and clips outliers.
     """
-    img_mean = uniform_filter(img, (size, size))
-    img_sqr_mean = uniform_filter(img**2, (size, size))
-    img_variance = img_sqr_mean - img_mean**2
-
-    overall_variance = variance(img)
-
-    img_weights = img_variance / (img_variance + overall_variance)
-    img_output = img_mean + img_weights * (img - img_mean)
-    return img_output
+    arr_db = np.clip(arr_db, lo, hi)
+    return (arr_db - lo) / (hi - lo) * 2.0 - 1.0
 
 class SARDataset(Dataset):
     """
     Dataset class for loading and preprocessing Sentinel-1 (SAR) images.
     """
-    def __init__(self, sen12ms_instance: SEN12MSDataset, season: Seasons, scene_patch_ids: List[Tuple[int, int]]):
+    def __init__(self, sen12ms_instance: SEN12MSDataset, season: Seasons, scene_patch_ids: List[Tuple[int, int]],cache_dir: str | None = None):
         self.sen12ms = sen12ms_instance
         self.season = season
         self.scene_patch_ids = scene_patch_ids
+        self.cache_dir = cache_dir
+        if self.cache_dir:
+            os.makedirs(self.cache_dir, exist_ok=True)
 
     def __len__(self) -> int:
         return len(self.scene_patch_ids)
 
     def __getitem__(self, idx: int) -> torch.Tensor:
         scene_id, patch_id = self.scene_patch_ids[idx]
-        
+
+        # Caching for faster access
+        if self.cache_dir:
+            cache_path = os.path.join(self.cache_dir, f"{scene_id}_{patch_id}.npy")
+            if os.path.isfile(cache_path):
+                return torch.from_numpy(np.load(cache_path)).float()
         bands_to_load = [S1Bands.VV, S1Bands.VH]
         sar_image_raw, _ = self.sen12ms.get_patch(self.season, scene_id, patch_id, bands=bands_to_load)
-        
-        vv_channel_filtered = lee_filter(sar_image_raw[0, :, :], size=7)
-        vh_channel_filtered = lee_filter(sar_image_raw[1, :, :], size=7)
-        
-        # Calculating ratio of third channel
-        ratio_channel = vh_channel_filtered / (vv_channel_filtered + 1e-6)
+                
+        vv_db = sar_image_raw[0, :, :] 
+        vh_db = sar_image_raw[1, :, :] 
 
-        # Normalize each of the three channels independently
-        # Normalize VV and VH channels to [-1, 1]
-        vv_norm = (vv_channel_filtered / 2047.5) - 1.0
-        vh_norm = (vh_channel_filtered / 2047.5) - 1.0
+        # Apply speckle filtering 
+        vv_db = gaussian_filter(vv_db, sigma=0.8)  
+        vh_db = gaussian_filter(vh_db, sigma=0.8)
+
+        vv_norm = norm_db(vv_db, lo=-30.0, hi=0.0)    
+        vh_norm = norm_db(vh_db, lo=-35.0, hi=-5.0)   
         
-        # Independently normalize the ratio channel to [-1, 1]
-        min_val, max_val = np.min(ratio_channel), np.max(ratio_channel)
-        if max_val > min_val:
-            ratio_norm = ((ratio_channel - min_val) / (max_val - min_val)) * 2.0 - 1.0
-        else:
-            # Handle the case where the channel is flat (all values are the same)
-            ratio_norm = np.zeros_like(ratio_channel)
+        # Compute ratio channel (difference in dB = log ratio)
+        ratio_db = vh_db - vv_db
+        ratio_db = np.clip(ratio_db, -15.0, 5.0)
+        ratio_norm = (ratio_db + 15.0) / 20.0 * 2.0 - 1.0
         
-        sar_image_processed = np.stack([vv_norm, vh_norm, ratio_norm], axis=0)
-        sar_tensor = torch.from_numpy(sar_image_processed.astype(np.float32))        
+        sar_processed = np.stack([vv_norm, vh_norm, ratio_norm], axis=0)
+        sar_tensor = torch.from_numpy(sar_processed.astype(np.float32))
+        
+        if self.cache_dir:
+            np.save(cache_path, sar_processed.astype(np.float32))
         return sar_tensor
         
 class EORGBDataset(Dataset):
@@ -163,7 +163,7 @@ class PairedSarEoDataset(Dataset):
         return sar_img, eo_img
 
 
-def get_dataloaders(base_dir: str, batch_size: int, val_split: float = 0.4, season: Seasons = Seasons.WINTER) -> Tuple[Dict, Dict]:
+def get_dataloaders(base_dir: str, batch_size: int, val_split: float = 0.15, season: Seasons = Seasons.WINTER) -> Tuple[Dict, Dict]:
     """
     Prepares and returns training and validation dataloaders for all three configurations.
     
@@ -192,7 +192,7 @@ def get_dataloaders(base_dir: str, batch_size: int, val_split: float = 0.4, seas
     val_scene_patch_ids = [(s, p) for s in val_scenes for p in all_patches.get(s, [])]
 
     # --- Create Training Datasets ---
-    sar_train_ds = SARDataset(sen12ms, season, train_scene_patch_ids)
+    sar_train_ds = SARDataset(sen12ms, season, train_scene_patch_ids,cache_dir="./sar_cache")
     eo_rgb_train_ds = EORGBDataset(sen12ms, season, train_scene_patch_ids)
     eo_nir_train_ds = EONirSwirRedEdgeDataset(sen12ms, season, train_scene_patch_ids)
     eo_rgbnir_train_ds = EORGBNirDataset(sen12ms, season, train_scene_patch_ids)

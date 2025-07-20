@@ -1,16 +1,21 @@
 import torch
 
-BASE_DIR="./data/"
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 8
-LEARNING_RATE = 1e-5
-LAMBDA_IDENTITY = 0.0
+BASE_DIR="./data/" #Location of main data
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu" #CPU or GPU
+BATCH_SIZE = 8 #Number of images at once
+LAMBDA_IDENTITY = 0.5   #Identity Loss
 LAMBDA_CYCLE = 10
 NUM_WORKERS = 4
-NUM_EPOCHS = 20
+NUM_EPOCHS = 20 #Total Training Time
 LOAD_MODEL = False
 SAVE_MODEL = True
-LAMBDA_SSIM = 1.0
+LEARNING_RATE_G = 2e-4
+LEARNING_RATE_D = 1e-4  # Slower discriminator learning
+LAMBDA_SSIM = 0.1       # Increase SSIM weight
+BETA1 = 0.5
+BETA2 = 0.999
+GRADIENT_CLIP = 1.0     # Reduce clipping
+LABEL_SMOOTHING = 0.1   # Add label smoothing
 
 
 EORGB_CHECKPOINT_GEN_SAR = "eorgb_gensar.pth.tar"

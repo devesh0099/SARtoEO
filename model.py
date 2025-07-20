@@ -7,6 +7,9 @@ from preprocess import get_dataloaders
 import config
 
 from torchmetrics.image import StructuralSimilarityIndexMeasure
+from torch.nn.utils import spectral_norm
+
+import numpy as np
 
 class ModelType(Enum):
     SAR_TO_EORGB =1
@@ -14,6 +17,9 @@ class ModelType(Enum):
     SAR_TO_EORGBNIR = 3
 
 class Model():
+    """
+    A Model class for handling model in the system
+    """
     def __init__(self,
         disc_SAR,
         disc_EO,
@@ -47,55 +53,14 @@ class Model():
 
 
 class SSIMLoss(nn.Module):
+    # Converted the metrics in a loss so the model get incentive to improve
     def __init__(self):
         super(SSIMLoss, self).__init__()
         self.ssim_metric = StructuralSimilarityIndexMeasure(data_range=1.0)
 
     def forward(self, img1, img2):
-        # The SSIM metric returns a value between 0 and 1 (higher is better).
-        # To use it as a loss, we want to minimize (1 - SSIM).
         self.ssim_metric.to(img1.device)
         return 1 - self.ssim_metric(img1, img2)
-
-
-# class SelfAttention(nn.Module):
-#     """
-#     Self-Attention Layer based on the SAGAN paper. This allows the network
-#     to model long-range dependencies, focusing on important spatial regions.
-#     """
-#     def __init__(self, in_channels):
-#         super(SelfAttention, self).__init__()
-#         self.in_channels = in_channels
-
-#         # Convolutional layers to create query, key, and value matrices
-#         self.query_conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels // 8, kernel_size=1)
-#         self.key_conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels // 8, kernel_size=1)
-#         self.value_conv = nn.Conv2d(in_channels=in_channels, out_channels=in_channels, kernel_size=1)
-        
-#         # Gamma is a learnable parameter that scales the attention output
-#         self.gamma = nn.Parameter(torch.zeros(1))
-
-#         self.softmax = nn.Softmax(dim=-1)
-
-#     def forward(self, x):
-#         batch_size, C, width, height = x.size()
-        
-#         # Create Query, Key, and Value projections
-#         proj_query = self.query_conv(x).view(batch_size, -1, width * height).permute(0, 2, 1)
-#         proj_key = self.key_conv(x).view(batch_size, -1, width * height)
-#         proj_value = self.value_conv(x).view(batch_size, -1, width * height)
-
-#         # Calculate the attention map
-#         energy = torch.bmm(proj_query, proj_key)
-#         attention_map = self.softmax(energy)
-
-#         # Apply the attention map to the value projection
-#         out = torch.bmm(proj_value, attention_map.permute(0, 2, 1))
-#         out = out.view(batch_size, C, width, height)
-        
-#         # Apply the learned gamma parameter and add the residual connection
-#         out = self.gamma * out + x
-#         return out
 
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, stride):
@@ -180,7 +145,6 @@ class Generator(nn.Module):
         self.res_blocks = nn.Sequential(
             *[ResidualBlock(num_features * 4) for _ in range(num_residuals)]
         )
-        # self.attention = SelfAttention(in_channels=num_features * 4)
         self.up_blocks = nn.ModuleList(
             [
                 ConvBlock(
@@ -218,51 +182,33 @@ class Generator(nn.Module):
         for layer in self.down_blocks:
             x = layer(x)
         x = self.res_blocks(x)
-        # x = self.attention(x)
         for layer in self.up_blocks:
             x = layer(x)
         return torch.tanh(self.last(x))
 
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels=3, features=[64, 128, 256, 512]):
+    def __init__(self, in_channels=3):
         super().__init__()
-        self.initial = nn.Sequential(
-            nn.Conv2d(
-                in_channels,
-                features[0],
-                kernel_size=4,
-                stride=2,
-                padding=1,
-                padding_mode="reflect",
-            ),
-            nn.LeakyReLU(0.2, inplace=True),
+        
+        def discriminator_block(in_filters, out_filters, normalize=True):
+            layers = [spectral_norm(nn.Conv2d(in_filters, out_filters, 4, stride=2, padding=1))]
+            if normalize:
+                layers.append(nn.InstanceNorm2d(out_filters))
+            layers.append(nn.LeakyReLU(0.2, inplace=True))
+            return layers
+
+        self.model = nn.Sequential(
+            *discriminator_block(in_channels, 64, normalize=False),
+            *discriminator_block(64, 128),
+            *discriminator_block(128, 256),
+            *discriminator_block(256, 512),
+            nn.ZeroPad2d((1, 0, 1, 0)),
+            spectral_norm(nn.Conv2d(512, 1, 4, padding=1))
         )
 
-        layers = []
-        in_channels = features[0]
-        for feature in features[1:]:
-            layers.append(
-                Block(in_channels, feature, stride=1 if feature == features[-1] else 2)
-            )
-            in_channels = feature
-        layers.append(
-            nn.Conv2d(
-                in_channels,
-                1,
-                kernel_size=4,
-                stride=1,
-                padding=1,
-                padding_mode="reflect",
-            )
-        )
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x):
-        x = self.initial(x)
-        return torch.sigmoid(self.model(x))
-    
-
+    def forward(self, img):
+        return self.model(img)
 
 def get_model(model:ModelType = ModelType.SAR_TO_EORGB):
     match model:
@@ -278,41 +224,26 @@ def get_model(model:ModelType = ModelType.SAR_TO_EORGB):
 
     disc_SAR = Discriminator(in_channels=sar_img_channels).to(config.DEVICE)
     disc_EO = Discriminator(in_channels=eo_img_channels).to(config.DEVICE)
-    gen_EO = Generator(in_channels=sar_img_channels, out_channels=eo_img_channels, num_residuals=9).to(config.DEVICE)
-    gen_SAR = Generator(in_channels=eo_img_channels, out_channels=sar_img_channels, num_residuals=9).to(config.DEVICE)
+    gen_EO = Generator(in_channels=sar_img_channels, out_channels=eo_img_channels, num_residuals=6).to(config.DEVICE)
+    gen_SAR = Generator(in_channels=eo_img_channels, out_channels=sar_img_channels, num_residuals=6).to(config.DEVICE)
     
     opt_disc = optim.Adam(
         list(disc_SAR.parameters()) + list(disc_EO.parameters()),
-        lr=config.LEARNING_RATE,
-        betas=(0.5, 0.999),
+        lr=config.LEARNING_RATE_D,
+        betas=(config.BETA1, config.BETA2),
     )
 
     opt_gen = optim.Adam(
         list(gen_EO.parameters()) + list(gen_SAR.parameters()),
-        lr=config.LEARNING_RATE,
-        betas=(0.5, 0.999),
+        lr=config.LEARNING_RATE_G,
+        betas=(config.BETA1, config.BETA2),
     )
-    def lambda_rule(epoch):
-        """
-        Defines the learning rate schedule. It stays constant for the first half
-        and then decays linearly to zero for the second half.
-        """
-        # Set the epoch at which the learning rate starts to decay
-        decay_start_epoch = config.NUM_EPOCHS / 2
-        
-        # If we are in the "constant" phase
-        if epoch < decay_start_epoch:
-            return 1.0
-        # If we are in the "decay" phase
-        else:
-            epochs_into_decay = epoch - decay_start_epoch
-            total_decay_epochs = config.NUM_EPOCHS - decay_start_epoch
-            # Calculate the linear decay multiplier
-            return 1.0 - (epochs_into_decay / total_decay_epochs)
 
-    # Create a scheduler for each optimizer using our custom rule
-    scheduler_gen = optim.lr_scheduler.LambdaLR(opt_gen, lr_lambda=lambda_rule)
-    scheduler_disc = optim.lr_scheduler.LambdaLR(opt_disc, lr_lambda=lambda_rule)
+    def cosine_schedule(epoch):
+        return 0.5 * (1 + np.cos(np.pi * epoch / config.NUM_EPOCHS))
+    
+    scheduler_gen = optim.lr_scheduler.LambdaLR(opt_gen, lr_lambda=cosine_schedule)
+    scheduler_disc = optim.lr_scheduler.LambdaLR(opt_disc, lr_lambda=cosine_schedule)
 
 
     train_loader, val_loader = get_dataloaders(config.BASE_DIR,config.BATCH_SIZE,val_split=0.25) 
@@ -339,6 +270,8 @@ def get_model(model:ModelType = ModelType.SAR_TO_EORGB):
                 gen_SAR=gen_SAR,
                 opt_disc=opt_disc,
                 opt_gen=opt_gen,
+                scheduler_gen=scheduler_gen,    
+                scheduler_disc=scheduler_disc, 
                 train_dataloader=train_loader['b'],
                 val_dataloader=val_loader['b']
             )
@@ -350,24 +283,11 @@ def get_model(model:ModelType = ModelType.SAR_TO_EORGB):
                 gen_SAR=gen_SAR,
                 opt_disc=opt_disc,
                 opt_gen=opt_gen,
+                scheduler_gen=scheduler_gen,    
+                scheduler_disc=scheduler_disc, 
                 train_dataloader=train_loader['c'],
                 val_dataloader=val_loader['c']
             )
-
-    # for epoch in range(config.NUM_EPOCHS):
-    #     train_fn(
-    #         disc_H,
-    #         disc_Z,
-    #         gen_Z,
-    #         gen_H,
-    #         loader,
-    #         opt_disc,
-    #         opt_gen,
-    #         L1,
-    #         mse,
-    #         d_scaler,
-    #         g_scaler,
-    #     )
 
     # if config.SAVE_MODEL:
     #     match model:

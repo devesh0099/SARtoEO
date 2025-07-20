@@ -83,11 +83,10 @@ class SEN12MSDataset:
             raise Exception(
                 "The specified base_dir for SEN12MS dataset does not exist")
 
-    """
-        Returns a list of scene ids for a specific season.
-    """
-
     def get_scene_ids(self, season: "Seasons") -> List[int]:
+        """
+            Returns a list of scene ids for a specific season.
+        """
         s1_season_name = f"{season.value}_s1"
 
         # MODIFICATION HERE: Added "ROIs2017_winter" to the path
@@ -101,11 +100,10 @@ class SEN12MSDataset:
                 scene_ids.append(scene_id)
         return scene_ids
 
-    """
-        Returns a list of patch ids for a specific scene within a specific season
-    """
-
     def get_patch_ids(self, season, scene_id):
+        """
+            Returns a list of patch ids for a specific scene within a specific season
+        """
         season = Seasons(season).value
         path = os.path.join(self.base_dir, season, f"s1_{scene_id}")
 
@@ -119,18 +117,17 @@ class SEN12MSDataset:
 
         return patch_ids
 
-    """
-        Return a dict of scene ids and their corresponding patch ids.
-        key => scene_ids, value => list of patch_ids
-    """
-
     def get_season_ids(self, season: "Seasons") -> Dict[int, List[int]]:
+        """
+            Return a dict of scene ids and their corresponding patch ids.
+            key => scene_ids, value => list of patch_ids
+        """
         season_ids = {}
         for scene_id in self.get_scene_ids(season):
             s1_scene_name = f"s1_{scene_id}"
             s1_season_name = f"{season.value}_s1"
     
-            # This part accounts for the extra nested folder for Kaggle
+            # This part accounts for the extra nested folder
             extra_folder = "ROIs2017_winter"
             scene_dir = os.path.join(self.base_dir, s1_season_name, extra_folder, s1_scene_name)
     
@@ -150,12 +147,12 @@ class SEN12MSDataset:
             season_ids[scene_id] = patch_ids
         return season_ids
 
-    """
-        Returns raster data and image bounds for the defined bands of a specific patch
-        This method only loads a sinlge patch from a single sensor as defined by the bands specified
-    """
 
     def get_patch(self, season: "Seasons", scene_id: int, patch_id: int, bands: List[Enum]) -> Tuple[object, str]:
+        """
+            Returns raster data and image bounds for the defined bands of a specific patch
+            This method only loads a sinlge patch from a single sensor as defined by the bands specified
+        """
         s1_path, s2_path = self.get_s1_s2_lc_triplet(season, scene_id, patch_id)
     
         if bands[0] in S1Bands:
@@ -171,33 +168,32 @@ class SEN12MSDataset:
             patch = f.read(band_ids)
     
         return patch, path
-    """
-        Returns a triplet of patches. S1, S2 and LC as well as the geo-bounds of the patch
-    """
+
 
     def get_s1_s2_lc_triplet(self, season: "Seasons", scene_id: int, patch_id: int) -> Tuple[str, str, str]:
+        """
+            Returns a triplet of patches. S1, S2 and LC as well as the geo-bounds of the patch
+        """
         s1_scene_name = f"s1_{scene_id}"
         s2_scene_name = f"s2_{scene_id}"
 
         s1_season_name = f"{season.value}_s1"
         s2_season_name = f"{season.value}_s2"
 
-        # MODIFICATION HERE: Added "ROIs2017_winter" to the path construction
         extra_folder = "ROIs2017_winter"
         s1_patch_name = f"{season.value}_{s1_scene_name}_p{patch_id}.tif"
-        s2_patch_name = f"{season.value}_{s2_scene_name}_p{patch_id}.tif" # Use s2_scene_name here
+        s2_patch_name = f"{season.value}_{s2_scene_name}_p{patch_id}.tif" 
         
         s1_path = os.path.join(self.base_dir, s1_season_name, extra_folder, s1_scene_name, s1_patch_name)
         s2_path = os.path.join(self.base_dir, s2_season_name, extra_folder, s2_scene_name, s2_patch_name)
 
         return s1_path, s2_path
 
-    """
-        Returns a triplet of numpy arrays with dimensions D, B, W, H where D is the number of patches specified
-        using scene_ids and patch_ids and B is the number of bands for S1, S2 or LC
-    """
-
     def get_triplets(self, season, scene_ids=None, patch_ids=None, s1_bands=S1Bands.ALL, s2_bands=S2Bands.ALL, lc_bands=LCBands.ALL):
+        """
+            Returns a triplet of numpy arrays with dimensions D, B, W, H where D is the number of patches specified
+            using scene_ids and patch_ids and B is the number of bands for S1, S2 or LC
+        """
         season = Seasons(season)
         scene_list = []
         patch_list = []
@@ -206,8 +202,6 @@ class SEN12MSDataset:
         s2_data = []
         lc_data = []
 
-        # This is due to the fact that not all patch ids are available in all scenes
-        # And not all scenes exist in all seasons
         if isinstance(scene_ids, list) and isinstance(patch_ids, list):
             raise Exception("Only scene_ids or patch_ids can be a list, not both.")
 
