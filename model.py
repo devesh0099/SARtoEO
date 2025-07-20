@@ -1,5 +1,47 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
+
+from utils import load_checkpoint,save_checkpoint
+from enum import Enum
+from preprocess import get_dataloaders
+import config
+
+class ModelType(Enum):
+    SAR_TO_EORGB =1
+    SAR_TO_EONIRSWIR = 2
+    SAR_TO_EORGBNIR = 3
+
+class Model():
+    def __init__(self,
+        disc_SAR,
+        disc_EO,
+        gen_EO ,
+        gen_SAR,
+        opt_disc, 
+        opt_gen,    
+        train_dataloader,
+        val_dataloader,
+        g_scaler = torch.cuda.amp.GradScaler(),
+        d_scaler = torch.cuda.amp.GradScaler(),
+        L1 = nn.L1Loss(),
+        mse = nn.MSELoss(),
+        ):
+        self.disc_SAR = disc_SAR
+        self.disc_EO = disc_EO
+        self.gen_EO  = gen_EO
+        self.gen_SAR = gen_SAR
+        self.opt_disc  = opt_disc
+        self.opt_gen = opt_gen
+        self.train_dataloader = train_dataloader
+        self.val_dataloader = val_dataloader
+        self.g_scaler = g_scaler
+        self.d_scaler = d_scaler
+        self.L1 = L1
+        self.mse = mse
+
+
+
 
 
 class Block(nn.Module):
@@ -50,11 +92,11 @@ class ResidualBlock(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, img_channels, num_features=64, num_residuals=9):
+    def __init__(self, in_channels, out_channels, num_features=64, num_residuals=9):
         super().__init__()
         self.initial = nn.Sequential(
             nn.Conv2d(
-                img_channels,
+                in_channels,
                 num_features,
                 kernel_size=7,
                 stride=1,
@@ -106,7 +148,7 @@ class Generator(nn.Module):
 
         self.last = nn.Conv2d(
             num_features * 1,
-            img_channels,
+            out_channels,
             kernel_size=7,
             stride=1,
             padding=3,
@@ -163,6 +205,180 @@ class Discriminator(nn.Module):
     
 
 
-def get_SAR_to_EORGB():
+def get_model(model:ModelType = ModelType.SAR_TO_EORGB):
+    match model:
+        case ModelType.SAR_TO_EORGB:
+            sar_img_channels = 3
+            eo_img_channels=3
+        case ModelType.SAR_TO_EONIRSWIR:
+            sar_img_channels = 3
+            eo_img_channels=3
+        case ModelType.SAR_TO_EORGBNIR:
+            sar_img_channels=3
+            eo_img_channels=4
+
+    disc_SAR = Discriminator(in_channels=sar_img_channels).to(config.DEVICE)
+    disc_EO = Discriminator(in_channels=eo_img_channels).to(config.DEVICE)
+    gen_EO = Generator(in_channels=sar_img_channels, out_channels=eo_img_channels, num_residuals=9).to(config.DEVICE)
+    gen_SAR = Generator(in_channels=eo_img_channels, out_channels=sar_img_channels, num_residuals=9).to(config.DEVICE)
     
-    pass
+    opt_disc = optim.Adam(
+        list(disc_SAR.parameters()) + list(disc_EO.parameters()),
+        lr=config.LEARNING_RATE,
+        betas=(0.5, 0.999),
+    )
+
+    opt_gen = optim.Adam(
+        list(gen_EO.parameters()) + list(gen_SAR.parameters()),
+        lr=config.LEARNING_RATE,
+        betas=(0.5, 0.999),
+    )
+
+    train_loader, val_loader = get_dataloaders(config.BASE_DIR) 
+    
+    match ModelType:
+        case ModelType.SAR_TO_EORGB:
+            return Model(
+                disc_SAR=disc_SAR,
+                disc_EO=disc_EO,
+                gen_EO=gen_EO,
+                gen_SAR=gen_SAR,
+                opt_disc=opt_disc,
+                opt_gen=opt_gen,
+                train_dataloader=train_loader['a'],
+                val_dataloader=val_loader['a']
+            )
+        case ModelType.SAR_TO_EONIRSWIR:
+            return Model(
+                disc_SAR=disc_SAR,
+                disc_EO=disc_EO,
+                gen_EO=gen_EO,
+                gen_SAR=gen_SAR,
+                opt_disc=opt_disc,
+                opt_gen=opt_gen,
+                train_dataloader=train_loader['b'],
+                val_dataloader=val_loader['b']
+            )
+        case ModelType.SAR_TO_EORGBNIR:
+            return Model(
+                disc_SAR=disc_SAR,
+                disc_EO=disc_EO,
+                gen_EO=gen_EO,
+                gen_SAR=gen_SAR,
+                opt_disc=opt_disc,
+                opt_gen=opt_gen,
+                train_dataloader=train_loader['c'],
+                val_dataloader=val_loader['c']
+            )
+
+    # for epoch in range(config.NUM_EPOCHS):
+    #     train_fn(
+    #         disc_H,
+    #         disc_Z,
+    #         gen_Z,
+    #         gen_H,
+    #         loader,
+    #         opt_disc,
+    #         opt_gen,
+    #         L1,
+    #         mse,
+    #         d_scaler,
+    #         g_scaler,
+    #     )
+
+    # if config.SAVE_MODEL:
+    #     match ModelType:
+    #         case ModelType.SAR_TO_EORGB:
+    #             save_checkpoint(gen_SAR, opt_gen, filename=config.EORGB_CHECKPOINT_GEN_SAR)
+    #             save_checkpoint(gen_EO, opt_gen, filename=config.EORGB_CHECKPOINT_GEN_EO)
+    #             save_checkpoint(disc_SAR, opt_disc, filename=config.EORGB_CHECKPOINT_CRITIC_SAR)
+    #             save_checkpoint(disc_EO, opt_disc, filename=config.EORGB_CHECKPOINT_CRITIC_EO)
+    #         case ModelType.SAR_TO_EORGBNIR:
+    #             save_checkpoint(gen_SAR, opt_gen, filename=config.EORGBNIR_CHECKPOINT_GEN_SAR)
+    #             save_checkpoint(gen_EO, opt_gen, filename=config.EORGBNIR_CHECKPOINT_GEN_EO)
+    #             save_checkpoint(disc_SAR, opt_disc, filename=config.EORGBNIR_CHECKPOINT_CRITIC_SAR)
+    #             save_checkpoint(disc_EO, opt_disc, filename=config.EORGBNIR_CHECKPOINT_CRITIC_EO)
+    #         case ModelType.SAR_TO_EONIRSWIR:
+    #             save_checkpoint(gen_SAR, opt_gen, filename=config.EONIRSWIR_CHECKPOINT_GEN_SAR)
+    #             save_checkpoint(gen_EO, opt_gen, filename=config.EONIRSWIR_CHECKPOINT_GEN_EO)
+    #             save_checkpoint(disc_SAR, opt_disc, filename=config.EONIRSWIR_CHECKPOINT_CRITIC_SAR)
+    #             save_checkpoint(disc_EO, opt_disc, filename=config.EONIRSWIR_CHECKPOINT_CRITIC_EO)
+    
+
+    # if config.LOAD_MODEL:
+    #     match ModelType:
+    #         case ModelType.SAR_TO_EORGB:
+    #             load_checkpoint(
+    #                 config.EORGB_CHECKPOINT_GEN_SAR,
+    #                 gen_SAR,
+    #                 opt_gen,
+    #                 config.LEARNING_RATE,
+    #             )
+    #             load_checkpoint(
+    #                 config.EORGB_CHECKPOINT_GEN_EO,
+    #                 gen_EO,
+    #                 opt_gen,
+    #                 config.LEARNING_RATE,
+    #             )
+    #             load_checkpoint(
+    #                 config.EORGB_CHECKPOINT_CRITIC_SAR,
+    #                 disc_SAR,
+    #                 opt_disc,
+    #                 config.LEARNING_RATE,
+    #             )
+    #             load_checkpoint(
+    #                 config.EORGB_CHECKPOINT_CRITIC_EO,
+    #                 disc_EO,
+    #                 opt_disc,
+    #                 config.LEARNING_RATE,
+    #             )
+    #         case ModelType.SAR_TO_EORGBNIR:
+    #             load_checkpoint(
+    #                 config.EORGBNIR_CHECKPOINT_GEN_SAR,
+    #                 gen_SAR,
+    #                 opt_gen,
+    #                 config.LEARNING_RATE,
+    #             )
+    #             load_checkpoint(
+    #                 config.EORGBNIR_CHECKPOINT_GEN_EO,
+    #                 gen_EO,
+    #                 opt_gen,
+    #                 config.LEARNING_RATE,
+    #             )
+    #             load_checkpoint(
+    #                 config.EORGBNIR_CHECKPOINT_CRITIC_SAR,
+    #                 disc_SAR,
+    #                 opt_disc,
+    #                 config.LEARNING_RATE,
+    #             )
+    #             load_checkpoint(
+    #                 config.EORGBNIR_CHECKPOINT_CRITIC_EO,
+    #                 disc_EO,
+    #                 opt_disc,
+    #                 config.LEARNING_RATE,
+    #             )
+    #         case ModelType.SAR_TO_EONIRSWIR:
+    #             load_checkpoint(
+    #                 config.EONIRSWIR_CHECKPOINT_GEN_SAR,
+    #                 gen_SAR,
+    #                 opt_gen,
+    #                 config.LEARNING_RATE,
+    #             )
+    #             load_checkpoint(
+    #                 config.EONIRSWIR_CHECKPOINT_GEN_EO,
+    #                 gen_EO,
+    #                 opt_gen,
+    #                 config.LEARNING_RATE,
+    #             )
+    #             load_checkpoint(
+    #                 config.EONIRSWIR_CHECKPOINT_CRITIC_SAR,
+    #                 disc_SAR,
+    #                 opt_disc,
+    #                 config.LEARNING_RATE,
+    #             )
+    #             load_checkpoint(
+    #                 config.EONIRSWIR_CHECKPOINT_CRITIC_EO,
+    #                 disc_EO,
+    #                 opt_disc,
+    #                 config.LEARNING_RATE,
+    #             )
