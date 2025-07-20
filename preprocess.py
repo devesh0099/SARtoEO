@@ -1,10 +1,25 @@
+from sen12ms_dataLoader import SEN12MSDataset, S1Bands, S2Bands, Seasons
 import torch
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import random
 from typing import List, Tuple, Dict
+from scipy.ndimage import uniform_filter, variance
 
-from sen12ms_dataLoader import SEN12MSDataset, S1Bands, S2Bands, Seasons
+
+def lee_filter(img, size): 
+    """
+    Applies Speckle Filter on the Image
+    """
+    img_mean = uniform_filter(img, (size, size))
+    img_sqr_mean = uniform_filter(img**2, (size, size))
+    img_variance = img_sqr_mean - img_mean**2
+
+    overall_variance = variance(img)
+
+    img_weights = img_variance / (img_variance + overall_variance)
+    img_output = img_mean + img_weights * (img - img_mean)
+    return img_output
 
 class SARDataset(Dataset):
     """
@@ -20,15 +35,33 @@ class SARDataset(Dataset):
 
     def __getitem__(self, idx: int) -> torch.Tensor:
         scene_id, patch_id = self.scene_patch_ids[idx]
+        
         bands_to_load = [S1Bands.VV, S1Bands.VH]
-        sar_image, _ = self.sen12ms.get_patch(self.season, scene_id, patch_id, bands=bands_to_load)
+        sar_image_raw, _ = self.sen12ms.get_patch(self.season, scene_id, patch_id, bands=bands_to_load)
         
-        # Preprocessing: Convert to float and normalize to [-1, 1]
-        sar_tensor = torch.from_numpy(sar_image.astype(np.float32))
-        sar_tensor = (sar_tensor / 2047.5) - 1.0
+        vv_channel_filtered = lee_filter(sar_image_raw[0, :, :], size=7)
+        vh_channel_filtered = lee_filter(sar_image_raw[1, :, :], size=7)
         
-        return sar_tensor
+        # Calculating ratio of third channel
+        ratio_channel = vh_channel_filtered / (vv_channel_filtered + 1e-6)
 
+        # Normalize each of the three channels independently
+        # Normalize VV and VH channels to [-1, 1]
+        vv_norm = (vv_channel_filtered / 2047.5) - 1.0
+        vh_norm = (vh_channel_filtered / 2047.5) - 1.0
+        
+        # Independently normalize the ratio channel to [-1, 1]
+        min_val, max_val = np.min(ratio_channel), np.max(ratio_channel)
+        if max_val > min_val:
+            ratio_norm = ((ratio_channel - min_val) / (max_val - min_val)) * 2.0 - 1.0
+        else:
+            # Handle the case where the channel is flat (all values are the same)
+            ratio_norm = np.zeros_like(ratio_channel)
+        
+        sar_image_processed = np.stack([vv_norm, vh_norm, ratio_norm], axis=0)
+        sar_tensor = torch.from_numpy(sar_image_processed.astype(np.float32))        
+        return sar_tensor
+        
 class EORGBDataset(Dataset):
     """
     Dataset class for loading and preprocessing Sentinel-2 (EO) images with RGB bands.
@@ -218,3 +251,45 @@ def get_test_loader(base_dir: str, config: str, test_scenes: List[int], batch_si
     test_loader = DataLoader(paired_test_ds, batch_size=batch_size, shuffle=False, num_workers=4)
     
     return test_loader
+
+if __name__ == '__main__':
+    # This is an example of how you would use the functions in your training script.
+    # Make sure you have downloaded the SEN12MS dataset and placed it in a 'data' directory.
+    DATA_DIR = "/kaggle/input/satellitessubset/" # Or the path to your SEN12MS dataset
+    BATCH_SIZE = 4
+    
+    print("Preparing training and validation dataloaders...")
+    try:
+        train_loaders, val_loaders = get_dataloaders(DATA_DIR, BATCH_SIZE, val_split=0.3)
+        
+        # You can now access the dataloaders for each configuration
+        train_loader_a = train_loaders['a']
+        val_loader_c = val_loaders['a']
+        
+        print(f"Number of batches in training loader 'a': {len(train_loader_a)}")
+        print(f"Number of batches in validation loader 'c': {len(val_loader_c)}")
+        
+        # Example of getting one batch from loader 'a'
+        sar_batch, eo_batch = next(iter(train_loader_a))
+        print(f"SAR batch shape: {sar_batch.shape}")  # Expected: [4, 2, 256, 256]
+        print(f"EO (RGB) batch shape: {eo_batch.shape}") # Expected: [4, 3, 256, 256]
+
+        # Example of preparing a test loader
+        # NOTE: You should use a separate set of scene IDs for testing that were not in train/val
+        sen12ms_main = SEN12MSDataset(DATA_DIR)
+        all_scene_ids = list(sen12ms_main.get_scene_ids(Seasons.WINTER))
+        if len(all_scene_ids) > 10: # Ensure there are enough scenes to create a test set
+            test_scene_ids = all_scene_ids[-2:] # Use last 2 scenes for testing as an example
+            print(f"\nPreparing test loader for config 'b' using scenes: {test_scene_ids}")
+            test_loader_b = get_test_loader(DATA_DIR, 'b', test_scenes=test_scene_ids, batch_size=BATCH_SIZE)
+            
+            sar_test_batch, eo_test_batch = next(iter(test_loader_b))
+            print(f"Test SAR batch shape: {sar_test_batch.shape}")
+            print(f"Test EO (NIR/SWIR/RE) batch shape: {eo_test_batch.shape}") # Expected: [4, 3, 256, 256]
+        else:
+            print("\nNot enough scenes in the dataset to create a separate test set for this example.")
+
+    except Exception as e:
+        print(f"An error occurred. Please ensure your data directory is correct and contains the dataset.")
+        print(f"Error: {e}")
+

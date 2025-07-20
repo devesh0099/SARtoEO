@@ -21,7 +21,7 @@ import numpy as np
 
 from enum import Enum
 from glob import glob
-
+from typing import List, Tuple, Dict
 
 class S1Bands(Enum):
     VV = 1
