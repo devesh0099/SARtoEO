@@ -104,14 +104,12 @@ Project1_SAR_to_EO/
 - **Reflection Padding**: Reduces boundary artifacts in generated images
 - **Tanh Activation**: Output range [-1, 1] matching input normalization
 
-
 ### Discriminator Architecture
 
 - **PatchGAN Discriminator**: 70×70 receptive field for local realism assessment
 - **Spectral Normalization**: Stabilizes discriminator training
 - **Leaky ReLU Activation**: α=0.2 for improved gradient flow
 - **Progressive Feature Extraction**: Multi-scale feature analysis
-
 
 ## Key Findings and Observations
 
@@ -120,11 +118,11 @@ Project1_SAR_to_EO/
 Based on our comprehensive evaluation[^1]:
 
 
-| Configuration | Final PSNR | Final SSIM | Generator Loss | Discriminator Loss |
+| Configuration | Best PSNR | Best SSIM | Generator Loss | Discriminator Loss |
 | :-- | :-- | :-- | :-- | :-- |
-| RGB (A) | **20.23 dB** | **0.6609** | 2.149 | 0.098 |
-| NIR-SWIR-RedEdge (B) | 17.15 dB | 0.3975 | 2.720 | 0.080 |
-| RGB+NIR (C) | 20.14 dB | **0.6670** | 2.198 | 0.091 |
+| RGB (A) | 21.86 dB | 0.6656 | 2.149 | 0.098 |
+| NIR-SWIR-RedEdge (B) | 18.03 dB | 0.4317 | 2.720 | 0.080 |
+| RGB+NIR (C) | **22.00 dB** | **0.6725** | 2.198 | 0.091 |
 
 ### Key Observations
 
