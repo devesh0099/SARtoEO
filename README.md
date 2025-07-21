@@ -1,9 +1,9 @@
 # SAR-to-EO Image Translation Using CycleGAN
 
-## Made by
+## Team Member
 
 - Devesh Bhushan
-
+- deveshbhushan7@gmail.com
 
 ## Project Overview
 
