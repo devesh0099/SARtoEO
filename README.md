@@ -27,7 +27,7 @@ The project addresses the challenge of translating synthetic aperture radar (SAR
 - **Instance Normalization**: Used throughout generator and discriminator for better performance
 
 
-### 3. **Sophisticated Data Processing Pipeline**
+### 3. **Data Processing Pipeline**
 
 - **Speckle Filtering**: Gaussian filtering (σ=0.8) applied to SAR VV and VH channels
 - **Multi-Channel SAR Processing**: VV, VH, and VV/VH ratio channels for comprehensive SAR representation
@@ -35,7 +35,7 @@ The project addresses the challenge of translating synthetic aperture radar (SAR
 - **Data Augmentation**: Random horizontal/vertical flips with consistent application to SAR-EO pairs
 
 
-### 4. **Advanced Training Strategies**
+### 4. **Training Strategies**
 
 - **Mixed Precision Training**: CUDA AMP integration for faster training and memory efficiency
 - **Cosine Learning Rate Scheduling**: Smooth learning rate decay for better convergence
@@ -43,7 +43,7 @@ The project addresses the challenge of translating synthetic aperture radar (SAR
 - **Early Stopping with Patience**: PSNR-based monitoring with minimum improvement threshold
 
 
-### 5. **Comprehensive Evaluation Framework**
+### 5. **Evaluation Framework**
 
 - **Real-time Validation**: PSNR and SSIM metrics computed during training
 - **Multi-GPU Support**: DataParallel implementation for scalable training
