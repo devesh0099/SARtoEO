@@ -185,6 +185,79 @@ python evaluate_results.py
 
 ## Sample Results
 
+### Visual Translation Examples
+
+Our CycleGAN implementation produces high-quality SAR-to-EO translations across all three spectral configurations. Below are representative examples showcasing the translation quality for different band combinations:
+
+First Layer is of SAR Images of 3 bands (VV, VH, Ratio of VV and VH)
+Second Layer is Generated EO Image
+Third Layer is Ground Truth
+
+#### Configuration A: RGB Translation (B4, B3, B2)
+**Standard visible spectrum translation providing natural color representation**
+
+![RGB Translation Example](./generated_samples/SAR%20->%20EO(RGB%20band)/SAR_TO_EO_RGB.png)
+
+*SAR-to-RGB translation demonstrating natural color synthesis with high structural preservation*
+
+#### Configuration B: NIR-SWIR-RedEdge Translation (B8, B11, B5)
+**Advanced spectral information capture for specialized remote sensing applications**
+
+![NIR-SWIR Translation Example](./generated_samples/SAR%20->%20EO%20(NIR,%20SWIR,%20Red%20Edges)/SAR_TO_EO_NIRSWIR.png)
+
+*SAR-to-NIR-SWIR translation highlighting vegetation and moisture content analysis capabilities*
+
+#### Configuration C: RGB+NIR Translation (B4, B3, B2, B8)
+**Hybrid approach combining visible spectrum with near-infrared information**
+
+![RGB-NIR Translation Example 1](generated_samples/SAR%20->%20EO%20(RGB%20and%20NIR)/SAR_TO_EONIRRGB_NIR.png)
+
+![RGB-NIR Translation Example 2](generated_samples/SAR%20->%20EO%20(RGB%20and%20NIR)/SAR_TO_EONIRRGB_RGB.png)
+
+*Top: NIR channel visualization | Bottom: RGB channel visualization from the 4-channel output*
+
+### Translation Quality Analysis
+
+#### Visual Quality Assessment
+- **Structural Preservation**: All configurations maintain geometric accuracy and spatial relationships from SAR input
+- **Spectral Consistency**: Generated EO images exhibit realistic spectral characteristics for their respective band combinations
+- **Artifact Reduction**: Minimal translation artifacts with smooth transitions and natural textures
+
+#### Configuration-Specific Strengths
+
+| Configuration | Key Strengths | Best Use Cases |
+|---------------|--------------|----------------|
+| **RGB (A)** | Natural color representation, highest PSNR (20.23 dB) | Visual interpretation, general mapping |
+| **NIR-SWIR-RedEdge (B)** | Specialized spectral information, vegetation analysis | Agricultural monitoring, environmental studies |
+| **RGB+NIR (C)** | Comprehensive spectral coverage, highest SSIM (0.6670) | Multi-spectral analysis, research applications |
+
+### Sample Image Details
+
+**Image Specifications:**
+- **Resolution**: 256×256 pixels
+- **Data Format**: PNG (8-bit per channel)
+- **Normalization**: Values scaled to [0, 255] for display
+- **Color Space**: 
+  - RGB configurations: Standard RGB color space
+  - NIR/SWIR configurations: False-color representation optimized for analysis
+
+**Translation Pipeline:**
+1. **Input**: Sentinel-1 SAR imagery (VV, VH polarizations + ratio)
+2. **Processing**: CycleGAN generator with 6 ResNet blocks
+3. **Output**: Corresponding Sentinel-2 EO imagery in target spectral bands
+4. **Post-processing**: Denormalization and format conversion for visualization
+
+### Performance Validation
+
+The sample results demonstrate our model's capability to:
+- **Preserve spatial information** while transforming from radar to optical domain
+- **Generate realistic textures** appropriate for each spectral configuration
+- **Maintain consistency** across different terrain types and land cover classes
+- **Handle various weather conditions** present in the original SAR imagery
+
+For quantitative performance metrics and detailed analysis, refer to the [Performance Analysis](#key-findings-and-observations) section above.
+
+
 ### Performance Metrics
 
 Our advanced CycleGAN implementation achieved:
