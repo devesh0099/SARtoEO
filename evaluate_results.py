@@ -243,7 +243,7 @@ class CycleGANEvaluator:
                 if i % 2 == 0:
                     table[(i, j)].set_facecolor('#F2F2F2')
         
-        plt.title('**Final Epoch Performance Comparison**', fontweight='bold', pad=20, fontsize=14)
+        plt.title('Final Epoch Performance Comparison', fontweight='bold', pad=20, fontsize=14)
         plt.show()
         
         return comparison_df

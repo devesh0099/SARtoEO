@@ -7,36 +7,27 @@
 
 ## Project Overview
 
-This project implements a **CycleGAN-based SAR-to-EO image translation system** that converts Sentinel-1 SAR images into corresponding Sentinel-2 EO images. The implementation explores multiple spectral band configurations and incorporates several advanced techniques beyond the baseline CycleGAN architecture to improve translation quality and training stability.
+This project implements a **CycleGAN-based SAR-to-EO image translation system** that converts Sentinel-1 SAR images into corresponding Sentinel-2 EO images. The implementation explores multiple spectral band configurations and incorporates several techniques beyond the baseline CycleGAN architecture to improve translation quality and training stability.
 
 The project addresses the challenge of translating synthetic aperture radar (SAR) imagery into electro-optical (EO) imagery, enabling better visualization and interpretation of SAR data for remote sensing applications.
 
 ## Key Novelties and Improvements Beyond Baseline
 
-### 1. **Multi-Configuration Spectral Band Analysis**
-
-Unlike standard single-output approaches, our implementation systematically evaluates three distinct spectral band configurations:
-
-- **Configuration A**: RGB bands (B4, B3, B2) - Standard visible spectrum
-- **Configuration B**: NIR-SWIR-RedEdge bands (B8, B11, B5) - Advanced spectral information
-- **Configuration C**: RGB+NIR bands (B4, B3, B2, B8) - Hybrid approach with 4-channel output
-
-
-### 2. **Enhanced Loss Function Architecture**
+### 1. **Enhanced Loss Function Architecture**
 
 - **SSIM Loss Integration**: Added Structural Similarity Index Measure (SSIM) loss with λ=0.1 to improve perceptual quality
 - **Weighted Loss Combination**: Optimized combination of adversarial, cycle-consistency, identity, and perceptual losses
 - **Label Smoothing**: Implemented with factor 0.1 to improve training stability
 
 
-### 3. **Advanced Network Architecture Improvements**
+### 2. **Network Architecture Improvements**
 
 - **Spectral Normalization**: Applied to discriminator layers for training stabilization
 - **Gradient Clipping**: Implemented with max_norm=1.0 to prevent gradient explosion
 - **Instance Normalization**: Used throughout generator and discriminator for better performance
 
 
-### 4. **Sophisticated Data Processing Pipeline**
+### 3. **Sophisticated Data Processing Pipeline**
 
 - **Speckle Filtering**: Gaussian filtering (σ=0.8) applied to SAR VV and VH channels
 - **Multi-Channel SAR Processing**: VV, VH, and VV/VH ratio channels for comprehensive SAR representation
@@ -44,7 +35,7 @@ Unlike standard single-output approaches, our implementation systematically eval
 - **Data Augmentation**: Random horizontal/vertical flips with consistent application to SAR-EO pairs
 
 
-### 5. **Advanced Training Strategies**
+### 4. **Advanced Training Strategies**
 
 - **Mixed Precision Training**: CUDA AMP integration for faster training and memory efficiency
 - **Cosine Learning Rate Scheduling**: Smooth learning rate decay for better convergence
@@ -52,7 +43,7 @@ Unlike standard single-output approaches, our implementation systematically eval
 - **Early Stopping with Patience**: PSNR-based monitoring with minimum improvement threshold
 
 
-### 6. **Comprehensive Evaluation Framework**
+### 5. **Comprehensive Evaluation Framework**
 
 - **Real-time Validation**: PSNR and SSIM metrics computed during training
 - **Multi-GPU Support**: DataParallel implementation for scalable training
@@ -115,14 +106,14 @@ Project1_SAR_to_EO/
 
 ### Performance Analysis
 
-Based on our comprehensive evaluation[^1]:
+Based on our comprehensive evaluation:
 
 
-| Configuration | Best PSNR | Best SSIM | Generator Loss | Discriminator Loss |
+| Configuration | Final PSNR | Final SSIM | Generator Loss | Discriminator Loss |
 | :-- | :-- | :-- | :-- | :-- |
-| RGB (A) | 21.86 dB | 0.6656 | 2.149 | 0.098 |
-| NIR-SWIR-RedEdge (B) | 18.03 dB | 0.4317 | 2.720 | 0.080 |
-| RGB+NIR (C) | **22.00 dB** | **0.6725** | 2.198 | 0.091 |
+| RGB (A) | **20.23 dB** | **0.6609** | 2.149 | 0.098 |
+| NIR-SWIR-RedEdge (B) | 17.15 dB | 0.3975 | 2.720 | 0.080 |
+| RGB+NIR (C) | 20.14 dB | **0.6670** | 2.198 | 0.091 |
 
 ### Key Observations
 
@@ -149,7 +140,7 @@ Based on our comprehensive evaluation[^1]:
 ### Prerequisites
 
 ```bash
-pip install torch torchvision torchmetrics numpy pandas matplotlib seaborn scipy rasterio tqdm
+pip install -r requirements.txt
 ```
 
 
@@ -180,6 +171,8 @@ python train_cycleGAN.py
 python evaluate_results.py
 ```
 
+#### Training Performance Dashboard
+![Dashboard](./generated_samples/Dashboard.png)
 
 ## Sample Results
 
