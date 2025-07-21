@@ -103,17 +103,46 @@ Project1_SAR_to_EO/
 - **Progressive Feature Extraction**: Multi-scale feature analysis
 
 ## Key Findings and Observations
+*Evaluation conducted on 3,468 test samples using PSNR and SSIM quality metrics.*
+### Model Performance Comparison
 
-### Performance Analysis
-
-Based on our comprehensive evaluation:
-
-
-| Configuration | Final PSNR | Final SSIM | Generator Loss | Discriminator Loss |
+| Configuration | Target Spectral Bands | PSNR (dB) | SSIM | Performance Tier |
 | :-- | :-- | :-- | :-- | :-- |
-| RGB (A) | **20.23 dB** | **0.6609** | 2.149 | 0.098 |
-| NIR-SWIR-RedEdge (B) | 17.15 dB | 0.3975 | 2.720 | 0.080 |
-| RGB+NIR (C) | 20.14 dB | **0.6670** | 2.198 | 0.091 |
+| **A** | RGB | 16.05 ± 2.75 | 0.488 ± 0.051 | **Good** |
+| **B** | NIR-SWIR-RedEdge | 10.99 ± 4.05 | 0.308 ± 0.067 | Poor |
+| **C** | RGB+NIR | 16.53 ± 5.71 | 0.559 ± 0.112 | **Best** |
+
+### Detailed Performance Metrics
+
+#### Configuration A: SAR → RGB Translation
+
+- **Peak Signal-to-Noise Ratio**: 16.05 ± 2.75 dB
+- **Structural Similarity Index**: 0.488 ± 0.051
+- **Dynamic Range**: 11.07 - 20.12 dB (PSNR) | 0.35 - 0.57 (SSIM)
+- **Stability**: High consistency with moderate variance
+
+
+#### Configuration B: SAR → NIR-SWIR-RedEdge Translation
+
+- **Peak Signal-to-Noise Ratio**: 10.99 ± 4.05 dB
+- **Structural Similarity Index**: 0.308 ± 0.067
+- **Dynamic Range**: 3.08 - 17.76 dB (PSNR) | 0.18 - 0.47 (SSIM)
+- **Stability**: Poor performance with high variance
+
+
+#### Configuration C: SAR → RGB+NIR Translation
+
+- **Peak Signal-to-Noise Ratio**: 16.53 ± 5.71 dB
+- **Structural Similarity Index**: 0.559 ± 0.112
+- **Dynamic Range**: 6.61 - 24.60 dB (PSNR) | 0.37 - 0.73 (SSIM)
+- **Stability**: Highest quality potential with notable variance
+
+### Performance Ranking
+
+1. **Configuration C** - RGB+NIR: Best quality metrics with highest potential
+2. **Configuration A** - RGB: Solid baseline performance with good stability
+3. **Configuration B** - NIR-SWIR-RedEdge: Requires significant improvement
+
 
 ### Key Observations
 
