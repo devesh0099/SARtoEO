@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from pathlib import Path
+import os
 
 class CycleGANEvaluator:
     def __init__(self):
@@ -14,23 +15,46 @@ class CycleGANEvaluator:
         }
         self.colors = ['#2E86C1', '#E74C3C', '#28B463']
         
-    def load_training_logs(self, config_a_path, config_b_path, config_c_path):
-        """Load training logs from CSV files."""
-        self.data = {}
+    def load_training_logs(self, config_a_path=None, config_b_path=None, config_c_path=None):
+        """Load training logs from CSV files for all configurations."""
+        self.data = {}  # Reset data
+        
         paths = {
             'config_a': config_a_path,
             'config_b': config_b_path, 
             'config_c': config_c_path
         }
         
-        for config, path in paths.items():
-            try:
-                df = pd.read_csv(path)
-                self.data[config] = df
-                print(f"✓ Loaded {config}: {len(df)} epochs")
-            except Exception as e:
-                print(f"✗ Error loading {config}: {e}")
+        print("📁 Loading Training Logs...")
+        loaded_count = 0
         
+        for config, path in paths.items():
+            if path and os.path.exists(path):
+                try:
+                    df = pd.read_csv(path)
+                    if not df.empty:
+                        self.data[config] = df
+                        loaded_count += 1
+                        print(f"✓ Loaded {self.config_names[config]}: {len(df)} epochs")
+                    else:
+                        print(f"⚠ Empty file: {path}")
+                except Exception as e:
+                    print(f"✗ Error loading {config}: {e}")
+            elif path:
+                print(f"⚠ File not found: {path}")
+            else:
+                print(f"⚠ No path provided for {config}")
+        
+        if loaded_count == 0:
+            print("⚠ No training logs were successfully loaded")
+        elif loaded_count < 3:
+            print(f"⚠ Only {loaded_count}/3 configurations loaded successfully")
+        else:
+            print(f"✓ All {loaded_count} configurations loaded successfully")
+        
+        return loaded_count    
+    
+
     def plot_losses(self, figsize=(15, 6)):
         """Plot generator and discriminator losses over training epochs."""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
@@ -157,11 +181,25 @@ class CycleGANEvaluator:
         plt.tight_layout()
         plt.show()
         
+
     def create_comparison_table(self):
-        """Create a comparison table for final epoch metrics."""
+        """Create a comparison table for final epoch metrics across all configurations."""
         comparison_data = []
         
+        # Check if data is loaded for multiple configurations
+        if not self.data:
+            print("⚠ No training data loaded. Please load training logs first.")
+            return None
+        
+        if len(self.data) == 1:
+            print(f"⚠ Only {len(self.data)} configuration loaded. Expected 3 configurations.")
+            print(f"Loaded: {list(self.data.keys())}")
+        
         for config, df in self.data.items():
+            if df.empty:
+                print(f"⚠ No data found for {config}")
+                continue
+                
             final_epoch = df.iloc[-1]
             comparison_data.append({
                 'Configuration': self.config_names[config],
@@ -172,6 +210,10 @@ class CycleGANEvaluator:
                 'Real Score': f"{final_epoch['discriminator_eo_real_score']:.3f}",
                 'Fake Score': f"{final_epoch['discriminator_eo_fake_score']:.3f}"
             })
+        
+        if not comparison_data:
+            print("⚠ No valid comparison data to display")
+            return None
         
         comparison_df = pd.DataFrame(comparison_data)
         
@@ -201,11 +243,11 @@ class CycleGANEvaluator:
                 if i % 2 == 0:
                     table[(i, j)].set_facecolor('#F2F2F2')
         
-        plt.title('Final Epoch Performance Comparison', fontweight='bold', pad=20, fontsize=14)
+        plt.title('**Final Epoch Performance Comparison**', fontweight='bold', pad=20, fontsize=14)
         plt.show()
         
         return comparison_df
-    
+
     def plot_comprehensive_dashboard(self, figsize=(20, 12)):
         """Create a comprehensive dashboard with all metrics."""
         fig = plt.figure(figsize=figsize)
@@ -380,8 +422,8 @@ if __name__ == "__main__":
     # Load training logs (update paths as needed)
     evaluator.load_training_logs(
         config_a_path="./evaluation_results_SAR_TO_EORGB/training_log_config_a.csv",
-        config_b_path="./evaluation_results_SAR_TO_EONIRSWIR/training_log_config_b.csv", 
-        config_c_path="./evaluation_results_SAR_TO_EORGBNIR/training_log_config_c.csv"
+        config_b_path="./evaluation_results_SAR_TO_EORGBNIR/training_log_config_b.csv", 
+        config_c_path="./evaluation_results_SAR_TO_EONIRSWIR/training_log_config_c.csv"
     )
     
     # Set plotting style
