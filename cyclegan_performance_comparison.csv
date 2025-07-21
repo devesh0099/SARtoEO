@@ -1,0 +1,2 @@
+Configuration,Final PSNR,Final SSIM,Generator Loss,Discriminator Loss,Real Score,Fake Score
+"RGB (B4, B3, B2)",20.23 dB,0.6609,2.149,0.098,0.673,0.323
