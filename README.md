@@ -210,8 +210,10 @@ Third Layer is Ground Truth
 #### Configuration C: RGB+NIR Translation (B4, B3, B2, B8)
 **Hybrid approach combining visible spectrum with near-infrared information**
 
+##### NIR Image only
 ![RGB-NIR Translation Example 1](generated_samples/SAR%20->%20EO%20(RGB%20and%20NIR)/SAR_TO_EONIRRGB_NIR.png)
 
+##### RGB Image only
 ![RGB-NIR Translation Example 2](generated_samples/SAR%20->%20EO%20(RGB%20and%20NIR)/SAR_TO_EONIRRGB_RGB.png)
 
 *Top: NIR channel visualization | Bottom: RGB channel visualization from the 4-channel output*
