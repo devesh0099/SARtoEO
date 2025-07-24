@@ -61,7 +61,7 @@ class SARDataset(Dataset):
         if self.cache_dir:
             np.save(cache_path, sar_processed.astype(np.float32))
         return sar_tensor
-        
+    
 class EORGBDataset(Dataset):
     """
     Dataset class for loading and preprocessing Sentinel-2 (EO) images with RGB bands.

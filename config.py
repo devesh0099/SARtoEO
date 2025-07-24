@@ -2,7 +2,7 @@ import torch
 
 BASE_DIR="./data/" #Location of main data
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu" #CPU or GPU
-BATCH_SIZE = 8 #Number of images at once
+BATCH_SIZE = 24 #Number of images at once
 LAMBDA_IDENTITY = 0.5   #Identity Loss
 LAMBDA_CYCLE = 10
 NUM_WORKERS = 4

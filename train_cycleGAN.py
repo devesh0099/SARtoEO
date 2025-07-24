@@ -4,12 +4,11 @@ from tqdm import tqdm
 import model
 import config
 from torchvision.utils import save_image
-from utils import load_checkpoint,save_checkpoint,seed_everything
+from utils import save_checkpoint,seed_everything
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 import os
 import csv
 import time
-
 
 psnr = PeakSignalNoiseRatio().to(config.DEVICE)
 ssim = StructuralSimilarityIndexMeasure().to(config.DEVICE)
@@ -60,9 +59,6 @@ class TrainingLogger:
 
     def close(self):
         self.file.close()
-
-
-
 
 def validate_fn(model, epoch):
     """

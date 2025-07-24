@@ -1,4 +1,0 @@
-Configuration,Final PSNR,Final SSIM,Generator Loss,Discriminator Loss,Real Score,Fake Score
-"RGB (B4, B3, B2)",20.23 dB,0.6609,2.149,0.098,0.673,0.323
-"NIR-SWIR-RedEdge (B8, B11, B5)",17.15 dB,0.3975,2.720,0.080,0.691,0.307
-"RGB+NIR (B4, B3, B2, B8)",20.14 dB,0.6670,2.198,0.091,0.669,0.327

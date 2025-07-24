@@ -1,8 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
-from pathlib import Path
 import os
 
 class CycleGANEvaluator:
@@ -10,8 +8,8 @@ class CycleGANEvaluator:
         """Initialize the evaluator with configuration details."""
         self.config_names = {
             'config_a': 'RGB (B4, B3, B2)',
-            'config_b': 'NIR-SWIR-RedEdge (B8, B11, B5)', 
-            'config_c': 'RGB+NIR (B4, B3, B2, B8)'
+            'config_c': 'NIR-SWIR-RedEdge (B8, B11, B5)', 
+            'config_b': 'RGB+NIR (B4, B3, B2, B8)'
         }
         self.colors = ['#2E86C1', '#E74C3C', '#28B463']
         
@@ -25,7 +23,7 @@ class CycleGANEvaluator:
             'config_c': config_c_path
         }
         
-        print("📁 Loading Training Logs...")
+        print(" Loading Training Logs...")
         loaded_count = 0
         
         for config, path in paths.items():
@@ -421,9 +419,9 @@ if __name__ == "__main__":
     
     # Load training logs (update paths as needed)
     evaluator.load_training_logs(
-        config_a_path="./evaluation_results_SAR_TO_EORGB/training_log_config_a.csv",
-        config_b_path="./evaluation_results_SAR_TO_EORGBNIR/training_log_config_b.csv", 
-        config_c_path="./evaluation_results_SAR_TO_EONIRSWIR/training_log_config_c.csv"
+        config_a_path="./training_log/Sar to EO RGB/training_log_config_a.csv",
+        config_b_path="./training_log/Sar to EO SWIR NIR/training_log_config_b.csv", 
+        config_c_path="./training_log/Sar to EO RGB NIR/training_log_config_c.csv"
     )
     
     # Set plotting style
@@ -456,7 +454,3 @@ if __name__ == "__main__":
     evaluator.analyze_best_configuration()
     
     print("Analysis Complete!")
-    
-    # Save comparison table
-    comparison_table.to_csv('cyclegan_performance_comparison.csv', index=False)
-    print(" Performance comparison saved to 'cyclegan_performance_comparison.csv'")
