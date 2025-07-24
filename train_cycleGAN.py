@@ -17,9 +17,6 @@ import csv
 import os
 
 class TrainingLogger:
-    """
-    A simple logger to save training and validation metrics to a CSV file for analysis.
-    """
     def __init__(self, filepath="training_log.csv"):
         self.filepath = filepath
         self.file_exists = os.path.isfile(filepath)
@@ -41,9 +38,6 @@ class TrainingLogger:
             ])
 
     def log_epoch(self, epoch_data):
-        """
-        Writes a new row of data for a completed epoch.
-        """
         self.writer.writerow([
             epoch_data.get("epoch", ""),
             epoch_data.get("learning_rate_gen", ""),
@@ -59,30 +53,39 @@ class TrainingLogger:
 
     def close(self):
         self.file.close()
-
 def validate_fn(model, epoch):
-    """
-    Performs validation at the end of an epoch.
-    """
     print("\n--- Running Validation ---")
+    
     
     gen_EO = model.gen_EO
     loader = model.val_dataloader
 
+    
     gen_EO.eval()
 
+    
     total_psnr = 0
     total_ssim = 0
     num_samples = 0
 
+    
+    GRID_SAMPLES = 8  
+    collected_sar = []
+    collected_fake_eo = []
+    collected_real_eo = []
+    
+    
     with torch.no_grad():
+        
         for idx, (sar, eo) in enumerate(loader):
             sar = sar.to(config.DEVICE)
             eo = eo.to(config.DEVICE)
 
+            
             fake_eo = gen_EO(sar)
             
-            # Denormalize images from [-1, 1] to [0, 1] range for metric calculation
+            
+            
             fake_eo_norm = fake_eo * 0.5 + 0.5
             eo_norm = eo * 0.5 + 0.5
             sar_norm = sar * 0.5 + 0.5
@@ -91,56 +94,85 @@ def validate_fn(model, epoch):
             total_ssim += ssim(fake_eo_norm, eo_norm)
             num_samples += 1
 
-            # Save a grid of images for the first batch of each validation run
-            if idx == 0:
-                # Handle channel mismatch for visualization
-                if sar.shape[1] != eo.shape[1]: 
-                    if eo.shape[1] == 4:  # EO has 4 channels (RGB+NIR)
-                        fake_eo_rgb = fake_eo_norm[:, :3]  # RGB only
-                        eo_rgb = eo_norm[:, :3]           # RGB only
-                        
-                        comparison_grid = torch.cat([
-                            sar_norm, 
-                            fake_eo_rgb,
-                            eo_rgb      
-                        ], dim=0)
-                        
-                        nir_comparison = torch.cat([
-                            torch.zeros_like(sar_norm[:, :1]).expand(-1, 3, -1, -1),  
-                            fake_eo_norm[:, 3:4].expand(-1, 3, -1, -1),  
-                            eo_norm[:, 3:4].expand(-1, 3, -1, -1)      
-                        ], dim=0)
-                        
-                        save_image(comparison_grid, f"./saved_images/validation_epoch_{epoch}_rgb.png", nrow=len(sar))
-                        save_image(nir_comparison, f"./saved_images/validation_epoch_{epoch}_nir.png", nrow=len(sar))
-                        
-                else:  
-                    comparison_grid = torch.cat([sar_norm, fake_eo_norm, eo_norm], dim=0)
-                    save_image(comparison_grid, f"./saved_images/validation_epoch_{epoch}.png", nrow=len(sar))
-                print(f"Saved validation image grid to saved_images/validation_epoch_{epoch}.png")
+            
+            batch_size = sar.shape[0]
+            samples_to_take = min(batch_size, GRID_SAMPLES - len(collected_sar))
+            
+            for i in range(samples_to_take):
+                collected_sar.append(sar_norm[i])
+                collected_fake_eo.append(fake_eo_norm[i])
+                collected_real_eo.append(eo_norm[i])
+            
+            
+            if len(collected_sar) >= GRID_SAMPLES:
+                break
+
+        if len(collected_sar) > 0:
+            samples_to_use = min(len(collected_sar), GRID_SAMPLES)
+            
+            
+            if collected_sar[0].shape[0] != collected_real_eo[0].shape[0]:  
+                if collected_real_eo[0].shape[0] == 4:  
+                    
+                    sar_samples = collected_sar[:samples_to_use]
+                    fake_eo_rgb_samples = [img[:3] for img in collected_fake_eo[:samples_to_use]]  
+                    real_eo_rgb_samples = [img[:3] for img in collected_real_eo[:samples_to_use]]      
+                    
+                    sar_row = torch.cat(sar_samples, dim=2)           
+                    fake_row = torch.cat(fake_eo_rgb_samples, dim=2)  
+                    real_row = torch.cat(real_eo_rgb_samples, dim=2)  
+                    
+                    
+                    comparison_grid = torch.cat([sar_row, fake_row, real_row], dim=1)
+                    save_image(comparison_grid, f"./saved_images/validation_epoch_{epoch}_3row_rgb.png")
+                    
+                    
+                    sar_empty_samples = [torch.zeros_like(img) for img in sar_samples]  
+                    fake_nir_samples = [img[3:4].expand(3, -1, -1) for img in collected_fake_eo[:samples_to_use]]  
+                    real_nir_samples = [img[3:4].expand(3, -1, -1) for img in collected_real_eo[:samples_to_use]]  
+                    
+                    sar_empty_row = torch.cat(sar_empty_samples, dim=2)
+                    fake_nir_row = torch.cat(fake_nir_samples, dim=2) 
+                    real_nir_row = torch.cat(real_nir_samples, dim=2)
+                    
+                    nir_comparison = torch.cat([sar_empty_row, fake_nir_row, real_nir_row], dim=1)
+                    save_image(nir_comparison, f"./saved_images/validation_epoch_{epoch}_3row_nir.png")
+                    
+                    print(f"Saved 3-row validation grids (RGB and NIR) to saved_images/")
+                    
+            else:  
+                sar_samples = collected_sar[:samples_to_use]
+                fake_samples = collected_fake_eo[:samples_to_use]
+                real_samples = collected_real_eo[:samples_to_use]
+                            
+                sar_row = torch.cat(sar_samples, dim=2)    
+                fake_row = torch.cat(fake_samples, dim=2)  
+                real_row = torch.cat(real_samples, dim=2)  
+                
+                comparison_grid = torch.cat([sar_row, fake_row, real_row], dim=1)
+                save_image(comparison_grid, f"./saved_images/validation_epoch_{epoch}_3row.png")
+                print(f"Saved 3-row validation grid to saved_images/validation_epoch_{epoch}_3row.png")
+            
+            print(f"Grid contains {samples_to_use} samples arranged in 3 rows")
 
     if num_samples == 0:
         print("Warning: Validation set is empty. Skipping metric calculation for this epoch.")
-        # Set models back to train mode before exiting
         gen_EO.train()
-        return {
-        "validation_psnr": -1,
-        "validation_ssim": -1
-    }
-    # Calculate average metrics for the epoch
+        return {"validation_psnr": -1, "validation_ssim": -1}
+    
     avg_psnr = total_psnr / num_samples
     avg_ssim = total_ssim / num_samples
 
     print(f"Validation Metrics - PSNR: {avg_psnr:.4f}, SSIM: {avg_ssim:.4f}")
     print("--- Validation Complete ---\n")
 
-    # Set the generator back to training mode
     gen_EO.train()
-    print(f"validation_psnr: {avg_psnr.item()},validation_ssim: {avg_ssim.item()}")
+
     return {
         "validation_psnr": avg_psnr.item(),
         "validation_ssim": avg_ssim.item()
     }
+
 
 def train(cycleGAN: model.Model):
     disc_SAR, disc_EO = cycleGAN.disc_SAR, cycleGAN.disc_EO

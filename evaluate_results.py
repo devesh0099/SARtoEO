@@ -5,16 +5,14 @@ import os
 
 class CycleGANEvaluator:
     def __init__(self):
-        """Initialize the evaluator with configuration details."""
         self.config_names = {
             'config_a': 'RGB (B4, B3, B2)',
+            'config_b': 'RGB+NIR (B4, B3, B2, B8)',
             'config_c': 'NIR-SWIR-RedEdge (B8, B11, B5)', 
-            'config_b': 'RGB+NIR (B4, B3, B2, B8)'
         }
         self.colors = ['#2E86C1', '#E74C3C', '#28B463']
         
     def load_training_logs(self, config_a_path=None, config_b_path=None, config_c_path=None):
-        """Load training logs from CSV files for all configurations."""
         self.data = {}  # Reset data
         
         paths = {
@@ -35,26 +33,25 @@ class CycleGANEvaluator:
                         loaded_count += 1
                         print(f"✓ Loaded {self.config_names[config]}: {len(df)} epochs")
                     else:
-                        print(f"⚠ Empty file: {path}")
+                        print(f" Empty file: {path}")
                 except Exception as e:
                     print(f"✗ Error loading {config}: {e}")
             elif path:
-                print(f"⚠ File not found: {path}")
+                print(f" File not found: {path}")
             else:
-                print(f"⚠ No path provided for {config}")
+                print(f" No path provided for {config}")
         
         if loaded_count == 0:
-            print("⚠ No training logs were successfully loaded")
+            print(" No training logs were successfully loaded")
         elif loaded_count < 3:
-            print(f"⚠ Only {loaded_count}/3 configurations loaded successfully")
+            print(f" Only {loaded_count}/3 configurations loaded successfully")
         else:
-            print(f"✓ All {loaded_count} configurations loaded successfully")
+            print(f"All {loaded_count} configurations loaded successfully")
         
         return loaded_count    
     
 
     def plot_losses(self, figsize=(15, 6)):
-        """Plot generator and discriminator losses over training epochs."""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
         
         # Generator Loss
@@ -85,7 +82,6 @@ class CycleGANEvaluator:
         plt.show()
         
     def plot_validation_metrics(self, figsize=(15, 6)):
-        """Plot PSNR and SSIM validation metrics."""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
         
         # PSNR
@@ -116,7 +112,6 @@ class CycleGANEvaluator:
         plt.show()
         
     def plot_learning_rates(self, figsize=(15, 6)):
-        """Plot learning rate schedules for generator and discriminator."""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
         
         # Generator Learning Rate
@@ -147,7 +142,6 @@ class CycleGANEvaluator:
         plt.show()
         
     def plot_discriminator_scores(self, figsize=(15, 6)):
-        """Plot discriminator real and fake scores."""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
         
         # Real Scores
@@ -181,21 +175,20 @@ class CycleGANEvaluator:
         
 
     def create_comparison_table(self):
-        """Create a comparison table for final epoch metrics across all configurations."""
         comparison_data = []
         
         # Check if data is loaded for multiple configurations
         if not self.data:
-            print("⚠ No training data loaded. Please load training logs first.")
+            print(" No training data loaded. Please load training logs first.")
             return None
         
         if len(self.data) == 1:
-            print(f"⚠ Only {len(self.data)} configuration loaded. Expected 3 configurations.")
+            print(f" Only {len(self.data)} configuration loaded. Expected 3 configurations.")
             print(f"Loaded: {list(self.data.keys())}")
         
         for config, df in self.data.items():
             if df.empty:
-                print(f"⚠ No data found for {config}")
+                print(f" No data found for {config}")
                 continue
                 
             final_epoch = df.iloc[-1]
@@ -210,7 +203,7 @@ class CycleGANEvaluator:
             })
         
         if not comparison_data:
-            print("⚠ No valid comparison data to display")
+            print(" No valid comparison data to display")
             return None
         
         comparison_df = pd.DataFrame(comparison_data)
@@ -247,7 +240,6 @@ class CycleGANEvaluator:
         return comparison_df
 
     def plot_comprehensive_dashboard(self, figsize=(20, 12)):
-        """Create a comprehensive dashboard with all metrics."""
         fig = plt.figure(figsize=figsize)
         
         # Create subplots
@@ -351,9 +343,8 @@ class CycleGANEvaluator:
         plt.show()
     
     def analyze_best_configuration(self):
-        """Analyze and report the best performing configuration."""
         print("="*60)
-        print("🔍 CONFIGURATION ANALYSIS")
+        print("CONFIGURATION ANALYSIS")
         print("="*60)
         
         best_psnr = {'config': None, 'value': 0, 'epoch': 0}

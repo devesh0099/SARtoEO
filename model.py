@@ -17,9 +17,6 @@ class ModelType(Enum):
     SAR_TO_EORGBNIR = 3
 
 class Model():
-    """
-    A Model class for handling model in the system
-    """
     def __init__(self,
         disc_SAR,
         disc_EO,

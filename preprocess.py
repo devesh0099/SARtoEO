@@ -8,16 +8,10 @@ from scipy.ndimage import uniform_filter, variance , gaussian_filter
 import os
 
 def norm_db(arr_db: np.ndarray, lo: float = -30.0, hi: float = 0.0) -> np.ndarray:
-    """
-    Linearly maps the dB range [lo, hi] to [-1, 1] and clips outliers.
-    """
     arr_db = np.clip(arr_db, lo, hi)
     return (arr_db - lo) / (hi - lo) * 2.0 - 1.0
 
 class SARDataset(Dataset):
-    """
-    Dataset class for loading and preprocessing Sentinel-1 (SAR) images.
-    """
     def __init__(self, sen12ms_instance: SEN12MSDataset, season: Seasons, scene_patch_ids: List[Tuple[int, int]],cache_dir: str | None = None):
         self.sen12ms = sen12ms_instance
         self.season = season
@@ -63,9 +57,6 @@ class SARDataset(Dataset):
         return sar_tensor
     
 class EORGBDataset(Dataset):
-    """
-    Dataset class for loading and preprocessing Sentinel-2 (EO) images with RGB bands.
-    """
     def __init__(self, sen12ms_instance: SEN12MSDataset, season: Seasons, scene_patch_ids: List[Tuple[int, int]]):
         self.sen12ms = sen12ms_instance
         self.season = season
@@ -86,9 +77,6 @@ class EORGBDataset(Dataset):
         return eo_tensor
 
 class EONirSwirRedEdgeDataset(Dataset):
-    """
-    Dataset class for loading and preprocessing Sentinel-2 (EO) images with NIR, SWIR, and Red Edge bands.
-    """
     def __init__(self, sen12ms_instance: SEN12MSDataset, season: Seasons, scene_patch_ids: List[Tuple[int, int]]):
         self.sen12ms = sen12ms_instance
         self.season = season
@@ -109,9 +97,6 @@ class EONirSwirRedEdgeDataset(Dataset):
         return eo_tensor
 
 class EORGBNirDataset(Dataset):
-    """
-    Dataset class for loading and preprocessing Sentinel-2 (EO) images with RGB + NIR bands.
-    """
     def __init__(self, sen12ms_instance: SEN12MSDataset, season: Seasons, scene_patch_ids: List[Tuple[int, int]]):
         self.sen12ms = sen12ms_instance
         self.season = season
@@ -132,10 +117,6 @@ class EORGBNirDataset(Dataset):
         return eo_tensor
 
 class PairedSarEoDataset(Dataset):
-    """
-    Helper dataset to pair SAR and EO images for CycleGAN training.
-    Applies optional, identical random augmentations to the pair.
-    """
     def __init__(self, sar_dataset: Dataset, eo_dataset: Dataset, augment: bool = False):
         self.sar_dataset = sar_dataset
         self.eo_dataset = eo_dataset
@@ -164,19 +145,6 @@ class PairedSarEoDataset(Dataset):
 
 
 def get_dataloaders(base_dir: str, batch_size: int, val_split: float = 0.15, season: Seasons = Seasons.WINTER) -> Tuple[Dict, Dict]:
-    """
-    Prepares and returns training and validation dataloaders for all three configurations.
-    
-    Args:
-        base_dir: The root directory of the SEN12MS dataset.
-        batch_size: The batch size for the dataloaders.
-        val_split: The fraction of scenes to use for validation.
-        season: The season to load data from.
-
-    Returns:
-        A tuple containing two dictionaries: (train_dataloaders, val_dataloaders).
-        Each dictionary has keys 'a', 'b', 'c' for the three configurations.
-    """
     sen12ms = SEN12MSDataset(base_dir)
     all_scene_ids = list(sen12ms.get_scene_ids(season))
     random.shuffle(all_scene_ids)
@@ -219,19 +187,6 @@ def get_dataloaders(base_dir: str, batch_size: int, val_split: float = 0.15, sea
     return train_dataloaders, val_dataloaders
 
 def get_test_loader(base_dir: str, config: str, test_scenes: List[int], batch_size: int, season: Seasons = Seasons.WINTER) -> DataLoader:
-    """
-    Prepares a dataloader for the test set for a specific configuration.
-    
-    Args:
-        base_dir: The root directory of the SEN12MS dataset.
-        config: The model configuration to test ('a', 'b', or 'c').
-        test_scenes: A list of scene IDs to be used exclusively for testing.
-        batch_size: The batch size for the dataloader.
-        season: The season to load data from.
-        
-    Returns:
-        A PyTorch DataLoader for the test set.
-    """
     sen12ms = SEN12MSDataset(base_dir)
     all_patches = sen12ms.get_season_ids(season)
     test_scene_patch_ids = [(s, p) for s in test_scenes for p in all_patches.get(s, [])]

@@ -16,7 +16,6 @@ from model import get_model, ModelType
 from preprocess import get_test_loader
 
 def init_device():
-    """Initialize device and check for multi-GPU setup"""
     if torch.cuda.is_available():
         n_gpu = torch.cuda.device_count()
         print(f"GPUs detected: {n_gpu}")
@@ -24,15 +23,12 @@ def init_device():
     return torch.device("cpu"), False
 
 class EnhancedMetrics:
-    """Enhanced metrics calculation including PSNR, SSIM, NDVI, and FLIP"""
-    
     def __init__(self, device):
         self.device = device
         self.psnr = PeakSignalNoiseRatio(data_range=1.0).to(device)
         self.ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
     
     def calculate_flip(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        """NVIDIA FLIP-inspired perceptual metric"""
         pred_np = pred.detach().cpu().numpy()
         target_np = target.detach().cpu().numpy()
         
@@ -54,7 +50,6 @@ class EnhancedMetrics:
         return torch.tensor(np.mean(batch_scores), device=pred.device)
     
     def calculate_ndvi(self, pred: torch.Tensor, target: torch.Tensor, config: str) -> Dict[str, torch.Tensor]:
-        """Calculate NDVI metrics based on configuration"""
         results = {'ndvi_applicable': False}
         
         if config == 'a':
@@ -100,7 +95,6 @@ class EnhancedMetrics:
         return results
 
 class FeatureVisualizer:
-    """Feature visualization and analysis capabilities"""
     
     def __init__(self, device, output_dir='./generated_samples'):
         self.device = device
@@ -112,7 +106,6 @@ class FeatureVisualizer:
         self.hooks = []
     
     def register_hooks(self, model):
-        """Register forward hooks for feature extraction"""
         def get_activation(name):
             def hook(model, input, output):
                 self.feature_maps[name] = output.detach()
@@ -130,7 +123,6 @@ class FeatureVisualizer:
             model.gen_EO.last.register_forward_hook(get_activation('decoder_output'))
     
     def generate_feature_maps(self, model, sar_input, config, batch_idx=0):
-        """Generate and save feature map visualizations"""
         self.register_hooks(model)
         
         with torch.no_grad():
@@ -144,7 +136,6 @@ class FeatureVisualizer:
             self.feature_maps.clear()
     
     def _save_feature_map(self, features, layer_name, config, batch_idx):
-        """Save individual feature map visualization"""
         if features.dim() != 4:
             return
         
@@ -170,7 +161,6 @@ class FeatureVisualizer:
         plt.close()
     
     def generate_activation_heatmaps(self, model, sar_input, pred_output, config, batch_idx=0):
-        """Generate activation-based attention maps without gradients"""
         
         # Hook to capture intermediate activations
         activations = {}
@@ -233,7 +223,6 @@ class FeatureVisualizer:
                 hook_handle.remove()
         
     def generate_error_maps(self, pred, target, sar, config, batch_idx=0):
-        """Generate comprehensive error analysis maps"""
         n_samples = min(4, pred.size(0))
         
         # Calculate different error types
@@ -270,7 +259,6 @@ class FeatureVisualizer:
             save_image(error_grid, self.output_dir / f'error_analysis_{config}_batch_{batch_idx}.png', nrow=n_samples)
 
 class EnhancedModelEvaluator:
-    """Comprehensive SAR-to-EO model evaluator with feature visualization"""
     
     def __init__(self, model_config, checkpoint_paths, output_dir='./test_results'):
         self.device, self.dp = init_device()
@@ -287,7 +275,6 @@ class EnhancedModelEvaluator:
         self.cycleGAN = self._load_trained_model()
     
     def _load_trained_model(self):
-        """Load pre-trained CycleGAN model"""
         print(f"Loading model configuration: {self.model_config}")
         
         cycleGAN = get_model(self.model_config)
@@ -319,7 +306,6 @@ class EnhancedModelEvaluator:
         return cycleGAN
     
     def _load_checkpoint_simple(self, checkpoint_file, model, optimizer):
-        """Load checkpoint with error handling"""
         print(f"=> Loading checkpoint: {checkpoint_file}")
         checkpoint = torch.load(checkpoint_file, map_location=self.device, weights_only=False)
         
@@ -332,7 +318,6 @@ class EnhancedModelEvaluator:
         print("✓ Checkpoint loaded successfully")
     
     def evaluate_on_test_set(self, test_loader, config_name):
-        """Comprehensive evaluation with feature visualization"""
         print(f"\n=== ENHANCED EVALUATION - CONFIG {config_name.upper()} ===")
         print(f"Test dataset size: {len(test_loader.dataset)} samples")
         
@@ -395,7 +380,6 @@ class EnhancedModelEvaluator:
         return results
     
     def _calculate_batch_metrics(self, pred, target, config):
-        """Calculate all metrics for a batch"""
         # Handle channel-specific evaluation
         if config == 'c' and target.size(1) == 4:
             # Use RGB channels for PSNR/SSIM, full for NDVI
@@ -423,7 +407,6 @@ class EnhancedModelEvaluator:
         }
     
     def _generate_batch_visualizations(self, pred, target, sar, config, batch_idx):
-        """Generate comprehensive visualizations for a batch"""
         # Feature maps (this works fine)
         self.visualizer.generate_feature_maps(self.cycleGAN, sar, config, batch_idx)
         
@@ -439,7 +422,6 @@ class EnhancedModelEvaluator:
 
     
     def _generate_ndvi_visualization(self, pred, target, config, batch_idx):
-        """Generate NDVI-specific visualizations"""
         n_samples = min(4, pred.size(0))
         
         if config == 'b':
@@ -479,7 +461,6 @@ class EnhancedModelEvaluator:
                   nrow=n_samples)
     
     def _compile_final_results(self, metrics_accumulator, batch_results, config):
-        """Compile final evaluation results"""
         def safe_stats(values):
             if not values or all(v is None for v in values):
                 return {'mean': 0.0, 'std': 0.0, 'min': 0.0, 'max': 0.0}
@@ -512,7 +493,6 @@ class EnhancedModelEvaluator:
         return results
     
     def _generate_summary_visualizations(self, results, config):
-        """Generate summary plots and analysis"""
         # Metric distribution plots
         metrics_to_plot = ['psnr', 'ssim', 'flip']
         if results.get('ndvi_applicable', False):
@@ -543,14 +523,11 @@ class EnhancedModelEvaluator:
         plt.close()
 
 def get_test_loader_wrapper(base_dir: str, config: str, batch_size: int):
-    """Wrapper for test loader initialization"""
     return get_test_loader(base_dir, config, [8,49,81,115,146],batch_size)
 
 def main():
-    """Enhanced evaluation pipeline with comprehensive analysis"""
-    
     # Configuration
-    BASE_DIR = "/kaggle/input/satellitessubset"  # Update to your data path
+    BASE_DIR = "./data"  # Update to your data path
     BATCH_SIZE = 16
     OUTPUT_DIR = "./enhanced_test_results"
     
@@ -559,28 +536,28 @@ def main():
         'a': {
             'model_type': ModelType.SAR_TO_EORGB,
             'paths': {
-                'gen_sar': "/kaggle/input/newcheckpoints/rgb/eorgb_gensar.pth.tar",
-                'gen_eo': "/kaggle/input/newcheckpoints/rgb/eorgb_geneo.pth.tar",
-                'disc_sar': "/kaggle/input/newcheckpoints/rgb/eorgb_criticsar.pth.tar",
-                'disc_eo': "/kaggle/input/newcheckpoints/rgb/eorgb_criticeo.pth.tar",
+                'gen_sar': "./checkpoints/EO_RGB/eorgb_gensar.pth.tar",
+                'gen_eo': "./checkpoints/EO_RGB/eorgb_geneo.pth.tar",
+                'disc_sar': "./checkpoints/EO_RGB/eorgb_criticsar.pth.tar",
+                'disc_eo': "./checkpoints/EO_RGB/eorgb_criticeo.pth.tar",
             }
         },
         'b': {
             'model_type': ModelType.SAR_TO_EONIRSWIR,
             'paths': {
-                'gen_sar': "/kaggle/input/newcheckpoints/nirswir/eonirswir_gensar.pth.tar",
-                'gen_eo': "/kaggle/input/newcheckpoints/nirswir/eonirswir_geneo.pth.tar",
-                'disc_sar': "/kaggle/input/newcheckpoints/nirswir/eonirswir_criticsar.pth.tar",
-                'disc_eo': "/kaggle/input/newcheckpoints/nirswir/eonirswir_criticeo.pth.tar",
+                'gen_sar': "./checkpoints/EO_NIR_SWIR/eonirswir_gensar.pth.tar",
+                'gen_eo': "./checkpoints/EO_NIR_SWIR/eonirswir_geneo.pth.tar",
+                'disc_sar': "./checkpoints/EO_NIR_SWIR/eonirswir_criticsar.pth.tar",
+                'disc_eo': "./checkpoints/EO_NIR_SWIR/eonirswir_criticeo.pth.tar",
             }
         },
         'c': {
             'model_type': ModelType.SAR_TO_EORGBNIR,
             'paths': {
-                'gen_sar': "/kaggle/input/newcheckpoints/rgbnir/eorgbnir_gensar.pth.tar",
-                'gen_eo': "/kaggle/input/newcheckpoints/rgbnir/eorgbnir_geneo.pth.tar",
-                'disc_sar': "/kaggle/input/newcheckpoints/rgbnir/eorgbnir_criticsar.pth.tar",
-                'disc_eo': "/kaggle/input/newcheckpoints/rgbnir/eorgbnir_criticeo.pth.tar",
+                'gen_sar': "./checkpoints/EO_RGB_NIR/eorgbnir_gensar.pth.tar",
+                'gen_eo': "./checkpoints/EO_RGB_NIR/eorgbnir_geneo.pth.tar",
+                'disc_sar': "./checkpoints/EO_RGB_NIR/eorgbnir_criticsar.pth.tar",
+                'disc_eo': "./checkpoints/EO_RGB_NIR/eorgbnir_criticeo.pth.tar",
             }
         }
     }
